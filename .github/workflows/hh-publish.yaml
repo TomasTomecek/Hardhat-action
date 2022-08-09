@@ -1,0 +1,46 @@
+---
+# hardhat compile && deploy to a network
+
+name: Hardhat compile and deploy
+
+on:
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  compile-n-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'yarn'
+
+      - name: Run `yarn install`
+        run: 'yarn install'
+
+      - name: Run `hardhat compile`
+        run: |
+          yarn hardhat compile
+
+      - name: Run `hardhat deploy`
+        run: |
+          echo '::set-output name=DEPLOY_OUTPUT::$(yarn hardhat deploy --network ${{ secrets.NETWORK_NAME }})\n'
+        id: deploy
+        env:
+          PRIVATE_KEY: '${{ secrets.NETWORK_PRIVATE_KEY }}'
+
+      - name: Comment the contract address to the PR
+        uses: actions/github-script@v5
+        with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Hardhat deploy output: ' + steps.deploy.outputs.DEPLOY_OUTPUT
+            })
